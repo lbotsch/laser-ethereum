@@ -96,6 +96,7 @@ class Node:
 
         # Self-assign a unique ID
         self.uid = str(uuid.uuid4())
+        logging.debug("This is patched laser...Node uuid="+self.uid)
 
 
     def __str__(self):
