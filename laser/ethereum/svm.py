@@ -195,7 +195,7 @@ class SVM:
 
         node = Node(context.module['name'], start_addr, constraints)
 
-        logging.debug("DEBUG Node(type=" + type(node) + "): " + str(node))
+        logging.debug("DEBUG Node(type=" + str(type(node)) + "): " + str(node))
 
         logging.debug("- Entering block " + str(node.uid) + ", index = " + str(state.pc) + ", address = " + str(start_addr) + ", depth = " + str(depth))
 
