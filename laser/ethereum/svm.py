@@ -96,7 +96,6 @@ class Node:
 
         # Self-assign a unique ID
         self.uid = str(uuid.uuid4())
-        logging.debug("This is patched laser...Node uuid="+self.uid)
 
 
     def __str__(self):
@@ -195,6 +194,8 @@ class SVM:
             self.execution_state['current_func_addr'] = start_addr
 
         node = Node(context.module['name'], start_addr, constraints)
+
+        logging.debug("DEBUG Node(type=" + type(node) + "): " + str(node))
 
         logging.debug("- Entering block " + str(node.uid) + ", index = " + str(state.pc) + ", address = " + str(start_addr) + ", depth = " + str(depth))
 
