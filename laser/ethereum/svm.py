@@ -6,14 +6,11 @@ import re
 import binascii
 import copy
 import logging
-
+import uuid
 
 TT256 = 2 ** 256
 TT256M1 = 2 ** 256 - 1
 TT255 = 2 ** 255
-
-
-gbl_next_uid = 0 # node counter
 
 
 class SVMError(Exception):
@@ -65,7 +62,7 @@ class State():
                 # Deduct gas.. not yet implemented
 
 
-class Context(): 
+class Context():
 
     def __init__(
         self,
@@ -98,16 +95,12 @@ class Node:
         self.function_name = "unknown"
 
         # Self-assign a unique ID
-
-        global gbl_next_uid
-
-        self.uid = gbl_next_uid
-        gbl_next_uid += 1
+        self.uid = str(uuid.uuid4())
 
 
     def __str__(self):
         return str(self.as_dict())
-        
+
     def as_dict(self):
 
         code = ""
@@ -122,7 +115,7 @@ class Node:
         return {'module_name': self.module_name, 'code': code, 'start_addr': self.start_addr, 'instruction_list': self.instruction_list, 'states': self.states, 'constraints': self.constraints}
 
 class Edge:
-    
+
     def __init__(self, node_from, node_to, edge_type=JumpType.UNCONDITIONAL, condition=None):
 
         self.node_from = node_from
@@ -132,7 +125,7 @@ class Edge:
 
     def __str__(self):
         return str(self.as_dict())
-        
+
     def as_dict(self):
 
         return {'from': self.node_from, 'to': self.node_to}
@@ -190,7 +183,7 @@ class SVM:
 
 
     def _sym_exec(self, context, state, depth=0, constraints=[]):
-    
+
         disassembly = context.module['disassembly']
         depth = depth
 
@@ -310,7 +303,7 @@ class SVM:
                 state.stack.append(TT256M1 - state.stack.pop())
 
             elif op == 'BYTE':
-                s0, s1 = state.stack.pop(), state.stack.pop()  
+                s0, s1 = state.stack.pop(), state.stack.pop()
 
                 state.stack.append(BitVecVal(0, 256))
 
@@ -429,7 +422,7 @@ class SVM:
 
                 if (type(val) == BoolRef):
                    exp = val == False
-                else:   
+                else:
                    exp = val == 0
 
                 state.stack.append(exp)
@@ -441,7 +434,7 @@ class SVM:
 
             elif op == 'CALLDATALOAD':
                 # unpack 32 bytes from calldata into a word and put it on the stack
-                
+
                 op0 = state.stack.pop()
 
                 try:
@@ -470,11 +463,11 @@ class SVM:
                         state.stack.append(BitVecVal(int.from_bytes(val, byteorder='big'), 256))
 
                     except:
-                        state.stack.append(b) 
+                        state.stack.append(b)
                 else:
                     # symbolic variable
                     state.stack.append(b)
-                                       
+
             elif op == 'CALLDATASIZE':
 
                 if context.calldata_type == CalldataType.SYMBOLIC:
@@ -573,17 +566,17 @@ class SVM:
 
                     for i in range(index, index + length):
                         data += helper.get_concrete_int(state.memory[i]).to_bytes(1, byteorder='big')
-                        i += 1 
-                
+                        i += 1
+
                 except:
 
                     svar = str(state.memory[index])
 
                     svar = svar.replace(" ", "_")
- 
+
                     state.stack.append(BitVec("keccac_" + svar, 256))
                     continue
-                
+
 
                 logging.debug("SHA3 Data: " + str(data))
 
@@ -630,7 +623,7 @@ class SVM:
                 state.stack.append(BitVec("block_gaslimit", 256))
 
             elif op == 'MLOAD':
-                
+
                 op0 = state.stack.pop()
 
                 logging.debug("MLOAD[" + str(op0) + "]")
@@ -642,7 +635,7 @@ class SVM:
                     data = BitVec("mem_" + str(op0), 256)
                     continue
 
-                try:   
+                try:
                     data = helper.concrete_int_from_bytes(state.memory, offset)
                 except IndexError: # Memory slot not allocated
                     data = BitVec("mem_" + str(offset), 256)
@@ -786,7 +779,7 @@ class SVM:
                 else:
                     logging.debug("Max depth reached, skipping JUMP")
                     halt = True
-                    continue                    
+                    continue
 
             elif op == 'JUMPI':
                 op0, condition = state.stack.pop(), state.stack.pop()
@@ -838,7 +831,7 @@ class SVM:
                             else:
                                 logging.debug("Invalid condition: " + str(condition) + "(type " + str(type(condition)) + ")")
                                 halt = True
-                                continue                
+                                continue
 
                         new_state = copy.deepcopy(state)
 
@@ -906,7 +899,7 @@ class SVM:
                         idx = int(m.group(1))
                         logging.info("Dynamic contract address at storage index " + str(idx))
 
-                        # attempt to read the contract address from instance storage 
+                        # attempt to read the contract address from instance storage
 
                         callee_address = self.dynamic_loader.read_storage(context.module['address'], idx)
 
@@ -981,7 +974,7 @@ class SVM:
                 except KeyError:
                     logging.info("Contract " + str(callee_address) + " not loaded.")
                     logging.info((str(self.modules)))
-                    
+
                     ret = BitVec("retval_" + str(disassembly.instruction_list[state.pc]['address']), 256)
                     state.stack.append(ret)
 
@@ -1059,7 +1052,7 @@ class SVM:
 
                 state.stack.append(BitVec("retval", 256))
 
-                continue 
+                continue
 
             elif op == 'RETURN':
                 offset, length = state.stack.pop(), state.stack.pop()
@@ -1070,25 +1063,25 @@ class SVM:
                     logging.debug("Return with symbolic length or offset. Not supported")
 
                 if self.last_call_address is not None:
-                    self.pending_returns[self.last_call_address].append(node.uid)              
+                    self.pending_returns[self.last_call_address].append(node.uid)
 
                 halt = True
-                continue                
+                continue
 
             elif op == 'SUICIDE':
                 halt = True
-                continue                
+                continue
 
             elif op == 'REVERT':
                 if self.last_call_address is not None:
                     self.pending_returns[self.last_call_address].append(node.uid)
 
                 halt = True
-                continue 
+                continue
 
             elif op == 'INVALID':
                 halt = True
-                continue 
+                continue
 
         logging.debug("Returning from node " + str(node.uid))
         return node
